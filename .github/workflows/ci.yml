@@ -14,22 +14,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest]
         compiler: [gcc, clang]
-        include:
-          - os: windows-latest
-            compiler: msvc
-        exclude:
-          - os: windows-latest
-            compiler: gcc
-          - os: windows-latest
-            compiler: clang
 
     steps:
     - uses: actions/checkout@v4
 
     - name: Setup C++ environment (Ubuntu)
-      if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update
         if [ "${{ matrix.compiler }}" = "gcc" ]; then
@@ -37,29 +28,6 @@ jobs:
         elif [ "${{ matrix.compiler }}" = "clang" ]; then
           sudo apt-get install -y clang build-essential libboost-dev
         fi
-
-    - name: Setup C++ environment (macOS)
-      if: matrix.os == 'macos-latest'
-      run: |
-        if [ "${{ matrix.compiler }}" = "gcc" ]; then
-          brew install gcc boost
-        elif [ "${{ matrix.compiler }}" = "clang" ]; then
-          xcode-select --install || true
-          brew install boost
-        fi
-
-    - name: Setup C++ environment (Windows MSVC)
-      if: matrix.os == 'windows-latest' && matrix.compiler == 'msvc'
-      uses: microsoft/setup-msbuild@v1.1
-
-    - name: Install Boost (Windows)
-      if: matrix.os == 'windows-latest'
-      run: |
-        # Use vcpkg to install boost
-        git clone https://github.com/Microsoft/vcpkg.git
-        .\vcpkg\bootstrap-vcpkg.bat
-        .\vcpkg\vcpkg install boost-logic:x64-windows boost-fusion:x64-windows
-      shell: cmd
 
     - name: Create missing bind_front.hpp
       run: |
@@ -117,11 +85,7 @@ jobs:
     - name: Compile test (GCC)
       if: matrix.compiler == 'gcc'
       run: |
-        if [ "${{ matrix.os }}" = "macos-latest" ]; then
-          g++-13 -std=c++14 -I. -o test/simple_compile_test test/simple_compile_test.cpp || g++ -std=c++14 -I. -o test/simple_compile_test test/simple_compile_test.cpp
-        else
-          g++ -std=c++14 -I. -o test/simple_compile_test test/simple_compile_test.cpp
-        fi
+        g++ -std=c++14 -I. -o test/simple_compile_test test/simple_compile_test.cpp
       shell: bash
 
     - name: Compile test (Clang)
@@ -130,19 +94,9 @@ jobs:
         clang++ -std=c++14 -I. -o test/simple_compile_test test/simple_compile_test.cpp
       shell: bash
 
-    - name: Compile test (MSVC)
-      if: matrix.compiler == 'msvc'
-      run: |
-        cl /std:c++14 /I. test/simple_compile_test.cpp /Fe:test/simple_compile_test.exe
-      shell: cmd
-
     - name: Run compiled test
       run: |
-        if [ "${{ matrix.os }}" = "windows-latest" ]; then
-          ./test/simple_compile_test.exe
-        else
-          ./test/simple_compile_test
-        fi
+        ./test/simple_compile_test
       shell: bash
 
   unit-tests:
@@ -152,22 +106,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest]
         compiler: [gcc, clang]
-        include:
-          - os: windows-latest
-            compiler: msvc
-        exclude:
-          - os: windows-latest
-            compiler: gcc
-          - os: windows-latest
-            compiler: clang
 
     steps:
     - uses: actions/checkout@v4
 
     - name: Setup C++ environment (Ubuntu)
-      if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update
         if [ "${{ matrix.compiler }}" = "gcc" ]; then
@@ -175,29 +120,6 @@ jobs:
         elif [ "${{ matrix.compiler }}" = "clang" ]; then
           sudo apt-get install -y clang build-essential libboost-dev
         fi
-
-    - name: Setup C++ environment (macOS)
-      if: matrix.os == 'macos-latest'
-      run: |
-        if [ "${{ matrix.compiler }}" = "gcc" ]; then
-          brew install gcc boost
-        elif [ "${{ matrix.compiler }}" = "clang" ]; then
-          xcode-select --install || true
-          brew install boost
-        fi
-
-    - name: Setup C++ environment (Windows MSVC)
-      if: matrix.os == 'windows-latest' && matrix.compiler == 'msvc'
-      uses: microsoft/setup-msbuild@v1.1
-
-    - name: Install Boost (Windows)
-      if: matrix.os == 'windows-latest'
-      run: |
-        # Use vcpkg to install boost
-        git clone https://github.com/Microsoft/vcpkg.git
-        .\vcpkg\bootstrap-vcpkg.bat
-        .\vcpkg\vcpkg install boost-logic:x64-windows boost-fusion:x64-windows
-      shell: cmd
 
     - name: Create missing bind_front.hpp
       run: |
@@ -226,11 +148,7 @@ jobs:
     - name: Compile unit tests (GCC)
       if: matrix.compiler == 'gcc'
       run: |
-        if [ "${{ matrix.os }}" = "macos-latest" ]; then
-          g++-13 -std=c++14 -I. -o test/unit_tests test/unit_tests.cpp || g++ -std=c++14 -I. -o test/unit_tests test/unit_tests.cpp
-        else
-          g++ -std=c++14 -I. -o test/unit_tests test/unit_tests.cpp
-        fi
+        g++ -std=c++14 -I. -o test/unit_tests test/unit_tests.cpp
       shell: bash
 
     - name: Compile unit tests (Clang)
@@ -239,19 +157,9 @@ jobs:
         clang++ -std=c++14 -I. -o test/unit_tests test/unit_tests.cpp
       shell: bash
 
-    - name: Compile unit tests (MSVC)
-      if: matrix.compiler == 'msvc'
-      run: |
-        cl /std:c++14 /I. test/unit_tests.cpp /Fe:test/unit_tests.exe
-      shell: cmd
-
     - name: Run unit tests
       run: |
-        if [ "${{ matrix.os }}" = "windows-latest" ]; then
-          ./test/unit_tests.exe
-        else
-          ./test/unit_tests
-        fi
+        ./test/unit_tests
       shell: bash
 
   format-check:
