@@ -22,10 +22,10 @@ public:
         return std::move(ctr);
     }
 
-    template <class E, class T>
-    constexpr void OnNext(C<E> &ctx, T &&e) const
+    template <class E>
+    constexpr void OnNext(C<E> &ctx, E &&e) const
     {
-        ctx.push_back(std::forward<T>(e));
+        ctx.push_back(std::forward<E>(e));
     }
 
     template <class E>
