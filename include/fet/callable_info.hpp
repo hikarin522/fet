@@ -3,6 +3,7 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include <cstddef>
 
 namespace fet
 {
@@ -29,7 +30,7 @@ struct CallableInfo
 
     using argument_count = std::tuple_size<argument_tuple>;
 
-    template <ssize_t N>
+    template <std::ptrdiff_t N>
     using argument_type = std::tuple_element_t < N<0 ? argument_count::value + N : N, argument_tuple>;
 };
 
@@ -53,7 +54,7 @@ using callable_info_t = decltype(impl::getCallableInfo<F>(std::declval<F>()));
 template <class F>
 using callable_info_t = impl::callable_info_t<std::remove_cv_t<std::remove_reference_t<F>>>;
 
-template <ssize_t N, class F>
+template <std::ptrdiff_t N, class F>
 using argument_t = typename callable_info_t<F>::template argument_type<N>;
 
 } // namespace fet
