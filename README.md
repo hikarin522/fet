@@ -29,6 +29,7 @@ auto result = source | gate | gate | ... | drain;
 
 - C++14 compatible compiler
 - Header-only library - no compilation required
+- Note: Some examples may require additional implementation files not included in this repository
 
 ## Installation
 
