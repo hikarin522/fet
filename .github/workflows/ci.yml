@@ -145,6 +145,115 @@ jobs:
         fi
       shell: bash
 
+  unit-tests:
+    name: Unit Tests on ${{ matrix.os }} with ${{ matrix.compiler }}
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        compiler: [gcc, clang]
+        include:
+          - os: windows-latest
+            compiler: msvc
+        exclude:
+          - os: windows-latest
+            compiler: gcc
+          - os: windows-latest
+            compiler: clang
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup C++ environment (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        if [ "${{ matrix.compiler }}" = "gcc" ]; then
+          sudo apt-get install -y g++ build-essential libboost-dev
+        elif [ "${{ matrix.compiler }}" = "clang" ]; then
+          sudo apt-get install -y clang build-essential libboost-dev
+        fi
+
+    - name: Setup C++ environment (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        if [ "${{ matrix.compiler }}" = "gcc" ]; then
+          brew install gcc boost
+        elif [ "${{ matrix.compiler }}" = "clang" ]; then
+          xcode-select --install || true
+          brew install boost
+        fi
+
+    - name: Setup C++ environment (Windows MSVC)
+      if: matrix.os == 'windows-latest' && matrix.compiler == 'msvc'
+      uses: microsoft/setup-msbuild@v1.1
+
+    - name: Install Boost (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        # Use vcpkg to install boost
+        git clone https://github.com/Microsoft/vcpkg.git
+        .\vcpkg\bootstrap-vcpkg.bat
+        .\vcpkg\vcpkg install boost-logic:x64-windows boost-fusion:x64-windows
+      shell: cmd
+
+    - name: Create missing bind_front.hpp
+      run: |
+        cat > include/bind_front.hpp << 'EOF'
+        #pragma once
+        
+        #include <functional>
+        #include <type_traits>
+        
+        // Simple implementation of bind_front for C++14 compatibility
+        // This is a simplified version of std::bind_front which was introduced in C++20
+        
+        namespace std {
+        
+        template<typename F, typename... Args>
+        auto bind_front(F&& f, Args&&... args) {
+            return [f = std::forward<F>(f), args...](auto&&... rest) mutable {
+                return f(args..., std::forward<decltype(rest)>(rest)...);
+            };
+        }
+        
+        } // namespace std
+        EOF
+      shell: bash
+
+    - name: Compile unit tests (GCC)
+      if: matrix.compiler == 'gcc'
+      run: |
+        if [ "${{ matrix.os }}" = "macos-latest" ]; then
+          g++-13 -std=c++14 -I. -o test/unit_tests test/unit_tests.cpp || g++ -std=c++14 -I. -o test/unit_tests test/unit_tests.cpp
+        else
+          g++ -std=c++14 -I. -o test/unit_tests test/unit_tests.cpp
+        fi
+      shell: bash
+
+    - name: Compile unit tests (Clang)
+      if: matrix.compiler == 'clang'
+      run: |
+        clang++ -std=c++14 -I. -o test/unit_tests test/unit_tests.cpp
+      shell: bash
+
+    - name: Compile unit tests (MSVC)
+      if: matrix.compiler == 'msvc'
+      run: |
+        cl /std:c++14 /I. test/unit_tests.cpp /Fe:test/unit_tests.exe
+      shell: cmd
+
+    - name: Run unit tests
+      run: |
+        if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          ./test/unit_tests.exe
+        else
+          ./test/unit_tests
+        fi
+      shell: bash
+
   format-check:
     name: Code Format Check
     runs-on: ubuntu-latest
