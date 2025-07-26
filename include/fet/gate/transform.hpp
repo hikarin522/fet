@@ -55,7 +55,7 @@ constexpr auto pair_transform(F &&keySelector)
         using E = rm_rref_t<decltype(e)>;
         return std::pair < std::result_of_t < F(E &&) >, E > {
             std::get<0>(fwd)(std::forward<E>(e)), std::forward<E>(e)
-        }
+        };
     });
 }
 
@@ -70,7 +70,7 @@ constexpr auto pair_transform(FK &&keySelector, FV &&valueSelector)
         using E = rm_rref_t<decltype(e)>;
         return std::pair < std::result_of_t < FK(E &&) >, std::result_of_t < FV(E &&) >> {
             std::get<0>(fwd)(std::forward<E>(e)), std::get<1>(fwd)(std::forward<E>(e))
-        }
+        };
     });
 }
 

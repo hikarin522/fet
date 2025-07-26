@@ -1,0 +1,229 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }} with ${{ matrix.compiler }}
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        compiler: [gcc, clang]
+        include:
+          - os: windows-latest
+            compiler: msvc
+        exclude:
+          - os: windows-latest
+            compiler: gcc
+          - os: windows-latest
+            compiler: clang
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup C++ environment (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        if [ "${{ matrix.compiler }}" = "gcc" ]; then
+          sudo apt-get install -y g++ build-essential libboost-dev
+        elif [ "${{ matrix.compiler }}" = "clang" ]; then
+          sudo apt-get install -y clang build-essential libboost-dev
+        fi
+
+    - name: Setup C++ environment (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        if [ "${{ matrix.compiler }}" = "gcc" ]; then
+          brew install gcc boost
+        elif [ "${{ matrix.compiler }}" = "clang" ]; then
+          xcode-select --install || true
+          brew install boost
+        fi
+
+    - name: Setup C++ environment (Windows MSVC)
+      if: matrix.os == 'windows-latest' && matrix.compiler == 'msvc'
+      uses: microsoft/setup-msbuild@v1.1
+
+    - name: Install Boost (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        # Use vcpkg to install boost
+        git clone https://github.com/Microsoft/vcpkg.git
+        .\vcpkg\bootstrap-vcpkg.bat
+        .\vcpkg\vcpkg install boost-logic:x64-windows boost-fusion:x64-windows
+      shell: cmd
+
+    - name: Create missing bind_front.hpp
+      run: |
+        cat > include/bind_front.hpp << 'EOF'
+        #pragma once
+        
+        #include <functional>
+        #include <type_traits>
+        
+        // Simple implementation of bind_front for C++14 compatibility
+        // This is a simplified version of std::bind_front which was introduced in C++20
+        
+        namespace std {
+        
+        template<typename F, typename... Args>
+        auto bind_front(F&& f, Args&&... args) {
+            return [f = std::forward<F>(f), args...](auto&&... rest) mutable {
+                return f(args..., std::forward<decltype(rest)>(rest)...);
+            };
+        }
+        
+        } // namespace std
+        EOF
+      shell: bash
+
+    - name: Create test file
+      run: |
+        mkdir -p test
+        cat > test/simple_compile_test.cpp << 'EOF'
+        // Simple compilation test for fet header-only library
+        // This test just verifies that headers can be included without compilation errors
+        
+        #include "../include/fet/core.hpp"
+        #include "../include/fet/util.hpp"
+        #include "../include/fet/callable_info.hpp"
+        #include "../include/fet/source/container_source.hpp"
+        #include "../include/fet/source/enumerator_source.hpp"
+        #include "../include/fet/gate/filter.hpp"
+        #include "../include/fet/gate/transform.hpp"
+        #include "../include/fet/gate/flat_map.hpp"
+        #include "../include/fet/drain/to_container.hpp"
+        #include "../include/fet/drain/accumulate.hpp"
+        #include "../include/fet/drain/multiplexer.hpp"
+        #include "../include/fet/drain/result_trainsform.hpp"
+        
+        int main() {
+            // This test just verifies that all headers can be included
+            // We don't need to instantiate templates since the goal is just to check
+            // that the headers are syntactically correct
+            return 0;
+        }
+        EOF
+      shell: bash
+
+    - name: Compile test (GCC)
+      if: matrix.compiler == 'gcc'
+      run: |
+        if [ "${{ matrix.os }}" = "macos-latest" ]; then
+          g++-13 -std=c++14 -I. -o test/simple_compile_test test/simple_compile_test.cpp || g++ -std=c++14 -I. -o test/simple_compile_test test/simple_compile_test.cpp
+        else
+          g++ -std=c++14 -I. -o test/simple_compile_test test/simple_compile_test.cpp
+        fi
+      shell: bash
+
+    - name: Compile test (Clang)
+      if: matrix.compiler == 'clang'
+      run: |
+        clang++ -std=c++14 -I. -o test/simple_compile_test test/simple_compile_test.cpp
+      shell: bash
+
+    - name: Compile test (MSVC)
+      if: matrix.compiler == 'msvc'
+      run: |
+        cl /std:c++14 /I. test/simple_compile_test.cpp /Fe:test/simple_compile_test.exe
+      shell: cmd
+
+    - name: Run compiled test
+      run: |
+        if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          ./test/simple_compile_test.exe
+        else
+          ./test/simple_compile_test
+        fi
+      shell: bash
+
+  format-check:
+    name: Code Format Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install uncrustify
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y uncrustify
+    
+    - name: Check code formatting
+      run: |
+        # Create a copy of the files to check formatting
+        find include/fet -name "*.hpp" -exec cp {} {}.orig \;
+        
+        # Run uncrustify on all header files
+        uncrustify -c uncrustify.cfg --no-backup include/fet/*.hpp include/fet/*/*.hpp
+        
+        # Check if any files were changed by uncrustify
+        changed_files=0
+        for file in $(find include/fet -name "*.hpp"); do
+          if ! cmp -s "$file" "$file.orig"; then
+            echo "File $file is not properly formatted"
+            echo "Expected format:"
+            cat "$file"
+            echo "Current format:"
+            cat "$file.orig"
+            changed_files=$((changed_files + 1))
+          fi
+          rm -f "$file.orig"
+        done
+        
+        if [ $changed_files -gt 0 ]; then
+          echo "❌ $changed_files file(s) are not properly formatted."
+          echo "Please run: uncrustify -c uncrustify.cfg --no-backup include/fet/*.hpp include/fet/*/*.hpp"
+          exit 1
+        else
+          echo "✅ All files are properly formatted."
+        fi
+
+  header-self-contained:
+    name: Header Self-Contained Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install GCC
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y g++ build-essential
+    
+    - name: Check each header compiles independently
+      run: |
+        mkdir -p test
+        failed_headers=0
+        
+        for header in $(find include/fet -name "*.hpp"); do
+          echo "Testing header: $header"
+          cat > test/single_header_test.cpp << EOF
+        #include "../$header"
+        int main() { return 0; }
+        EOF
+          
+          if g++ -std=c++14 -I. -c test/single_header_test.cpp -o test/single_header_test.o 2>/dev/null; then
+            echo "✅ $header compiles independently"
+          else
+            echo "❌ $header does not compile independently"
+            g++ -std=c++14 -I. -c test/single_header_test.cpp -o test/single_header_test.o
+            failed_headers=$((failed_headers + 1))
+          fi
+          rm -f test/single_header_test.cpp test/single_header_test.o
+        done
+        
+        if [ $failed_headers -gt 0 ]; then
+          echo "❌ $failed_headers header(s) do not compile independently"
+          exit 1
+        else
+          echo "✅ All headers compile independently"
+        fi

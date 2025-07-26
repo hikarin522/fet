@@ -30,3 +30,8 @@
 *.exe
 *.out
 *.app
+
+# Test files and build artifacts
+test/
+build/
+dist/
