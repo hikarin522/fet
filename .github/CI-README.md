@@ -7,8 +7,8 @@ This directory contains the GitHub Actions workflow for the fet library.
 The CI workflow runs on every push and pull request to main/master branches and includes:
 
 ### Build Matrix
-- **Operating Systems**: Ubuntu, Windows, macOS
-- **Compilers**: GCC, Clang, MSVC
+- **Operating Systems**: Ubuntu
+- **Compilers**: GCC, Clang
 - **Language Standard**: C++14
 
 ### Build Steps
@@ -25,4 +25,4 @@ The CI workflow runs on every push and pull request to main/master branches and 
 - **Boost**: Required for some headers (logic/tribool, fusion)
 - **bind_front.hpp**: Custom C++14 implementation (auto-generated)
 
-The workflow is designed specifically for header-only libraries and focuses on compilation validation across multiple platforms and compilers.
+The workflow is designed specifically for header-only libraries and focuses on compilation validation on Ubuntu with multiple compilers.
