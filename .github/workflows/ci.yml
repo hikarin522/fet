@@ -8,19 +8,18 @@ on:
 
 jobs:
   build:
-    name: Build on ${{ matrix.os }} with ${{ matrix.compiler }}
-    runs-on: ${{ matrix.os }}
+    name: Build on Ubuntu with ${{ matrix.compiler }}
+    runs-on: ubuntu-latest
     
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
         compiler: [gcc, clang]
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Setup C++ environment (Ubuntu)
+    - name: Setup C++ environment
       run: |
         sudo apt-get update
         if [ "${{ matrix.compiler }}" = "gcc" ]; then
@@ -51,7 +50,6 @@ jobs:
         
         } // namespace std
         EOF
-      shell: bash
 
     - name: Create test file
       run: |
@@ -80,39 +78,34 @@ jobs:
             return 0;
         }
         EOF
-      shell: bash
 
     - name: Compile test (GCC)
       if: matrix.compiler == 'gcc'
       run: |
         g++ -std=c++14 -I. -o test/simple_compile_test test/simple_compile_test.cpp
-      shell: bash
 
     - name: Compile test (Clang)
       if: matrix.compiler == 'clang'
       run: |
         clang++ -std=c++14 -I. -o test/simple_compile_test test/simple_compile_test.cpp
-      shell: bash
 
     - name: Run compiled test
       run: |
         ./test/simple_compile_test
-      shell: bash
 
   unit-tests:
-    name: Unit Tests on ${{ matrix.os }} with ${{ matrix.compiler }}
-    runs-on: ${{ matrix.os }}
+    name: Unit Tests on Ubuntu with ${{ matrix.compiler }}
+    runs-on: ubuntu-latest
     
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
         compiler: [gcc, clang]
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Setup C++ environment (Ubuntu)
+    - name: Setup C++ environment
       run: |
         sudo apt-get update
         if [ "${{ matrix.compiler }}" = "gcc" ]; then
@@ -143,24 +136,20 @@ jobs:
         
         } // namespace std
         EOF
-      shell: bash
 
     - name: Compile unit tests (GCC)
       if: matrix.compiler == 'gcc'
       run: |
         g++ -std=c++14 -I. -o test/unit_tests test/unit_tests.cpp
-      shell: bash
 
     - name: Compile unit tests (Clang)
       if: matrix.compiler == 'clang'
       run: |
         clang++ -std=c++14 -I. -o test/unit_tests test/unit_tests.cpp
-      shell: bash
 
     - name: Run unit tests
       run: |
         ./test/unit_tests
-      shell: bash
 
   format-check:
     name: Code Format Check
